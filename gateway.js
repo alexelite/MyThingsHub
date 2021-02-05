@@ -71,7 +71,7 @@ console.info('******************************************************************
 // **********************************************************************************
 // MQTT comunication
 // **********************************************************************************
-if (settings.mqtt.enabled){
+if (settings.mqtt.enabled.value){
   var mqtt_client_id        = settings.mqtt.client_id.value + Math.random().toString(16).substr(2, 8);
   // MQTT CLIENT OPTIONS
   var mqtt_Options = {
@@ -267,8 +267,8 @@ global.sendMessageToNode = function(node) {
 }
 
 global.sendMessageToGateway = function(msg) {
-  if (settings.mqtt.enabled) mqttSend(msg);
-  if (settings.serial.enabled){
+  if (settings.mqtt.enabled.value) mqttSend(msg);
+  if (settings.serial.enabled.value){
     port.write(msg + '\n', function (err) { 
       if (err) return console.error('port.write error: ', err.message)
       port.drain();
