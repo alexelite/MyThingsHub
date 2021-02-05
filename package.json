@@ -1,0 +1,37 @@
+{
+  "name": "MyThingsHub",
+  "version": "0.9.2",
+  "description": "Moteino IoT Gateway",
+  "main": "gateway.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/alexelite/RaspberryPi-Gateway.git"
+  },
+  "author": "",
+  "homepage": "",
+  "license": "CC-BY-NC-SA-4.0",
+  "bugs": {
+    "url": " ",
+    "email": " "
+  },
+  "contributors": " ",
+  "dependencies": {
+    "colors": "~1.4",
+    "console-stamp": "^0.2.7",
+    "json5": "~2.1.0",
+    "merge": "^1.2.1",
+    "mqtt": "^4.1.0",
+    "nconf": "~0.10.0",
+    "nedb": "^1.8.0",
+    "nedb-promises": "^4.1.1",
+    "nodemailer": "^6.4.6",
+    "serialport": "~9.0.1",
+    "socket.io": "~2.3.0",
+    "speedtest-net": "^1.6.2",
+    "suncalc": "~1.8"
+  },
+  "scripts": {
+    "preinstall": "",
+    "start": "node gateway.js"
+  }
+}

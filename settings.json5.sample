@@ -1,0 +1,199 @@
+{
+  settings: {
+    credentials: {
+      editable: true,
+      exposed: true,
+      emailservice: {
+        value: 'gmail',
+        description: 'default is gmail, see nodemailer reference for other clients - https://github.com/andris9/Nodemailer',
+      },
+      email: {
+        value: '________@gmail.com',
+        type: 'email',
+        description: 'put your gmail address here - this will also be used to send SMS (SMS via email)',
+      },
+      emailpass: {
+        value: '________',
+        type: 'password',
+        description: 'put your gmail password or app access code here',
+      },
+      emailAlertsTo: {
+        value: '________@gmail.com',
+        type: 'email',
+        description: 'put your alert/notification email here (can be the same as above)',
+      },
+      smsAlertsTo: {
+        value: '________@txt.att.net',
+        type: 'email',
+        description: "if you want SMS notifications, fill this in with your phone number (it's your cell#, domain differs for each carrier, ex: 5551234567@vtext.com for verizon, or 5551234567@txt.att.net for at&t)",
+      },
+    },
+    serial: {
+      editable: true,
+      exposed: true,
+      enabled: {
+        value: 'false',
+        type: 'checkbox',
+        description: 'Enable serial comunication',
+      },
+      port: {
+        value: 'COM3',
+        description: 'replace this with whatever serial port you have on your Pi/gateway (ttyAMA0 is the default GPIO serial port). If you use a MoteinoUSB then your Pi will emulate a serial port like /dev/ttyUSB0',
+      },
+      baud: {
+        value: 19200,
+        type: 'number',
+        description: 'needs to match the Serial baud speed in the sketch running on the Moteino or MightyHat that is attached to this Pi',
+      },
+    },
+    mqtt: {
+      editable: true,
+      exposed: true,
+      enabled: {
+        value: 'true',
+        type: 'checkbox',
+        description: 'Enable MQTT comunication',
+      },
+      host: {
+        value: '192.168.1.27',
+        description: 'replace this with hostname or ip of mqtt server',
+      },
+      port: {
+        value: 1883,
+        type: 'number',
+        description: 'mqtt port number (default:1883)',
+      },
+      subscribe_topic: {
+        value: 'gateway/out',
+        description: 'topic for incomming messages (from gateway)',
+      },
+      publish_topic: {
+        value: 'gateway/in',
+        description: 'topic for outgoing messages (to gateway)',
+      },
+      state_topic: {
+        value: 'gateway/state',
+        description: 'topic for state of controller',
+      },
+      username: {
+        value: '',
+        description: 'mqtt server username',
+      },
+      password: {
+        value: '',
+        description: 'mqtt server password',
+      },
+      client_id: {
+        value: 'gateway_',
+        description: 'mqtt client id prefix (must be unique so a random number will be appended',
+      },
+      qos: {
+        value: '0',
+        description: 'mqtt quality of service',
+      },
+    },
+    database: {
+      editable: false,
+      exposed: false,
+      name: {
+        value: 'gateway.db',
+        description: 'where your node information is stored, should not really be changed',
+      },
+      nonMatchesName: {
+        value: 'gateway_nonmatches.db',
+        description: 'where non match node information is dumped, should not really be changed',
+      },
+      compactDBInterval: {
+        value: 86400000,
+        type: 'number',
+        description: 'the gateway.db database is compacted every this many milliseconds, default = once every day',
+      },
+    },
+    general: {
+      editable: true,
+      exposed: true,
+      consoleLogDateFormat: {
+        value: 'dd-mm-yy HH:MM:ss.l',
+        exposed: false,
+      },
+      socketPort: {
+        value: 8080,
+        type: 'number',
+        editable: false,
+        description: 'the port at which the gateway.js socket app is listening',
+      },
+      genNodeIfNoMatch: {
+        value: 'false',
+        description: 'generate a new node even if the data received does not match any metric definition, default = false',
+        type: 'checkbox',
+      },
+      keepMetricLogsOnDelete: {
+        value: 'false',
+        type: 'checkbox',
+        description: 'keep the metric binary logs when metric is deleted, default = false',
+      },
+      graphMaxPoints: {
+        value: 800,
+        type: 'number',
+        description: 'display up to this many points in the UI, should not be more than your monitor resolution',
+      },
+      smsRepeatLimit: {
+        value: 180000,
+        type: 'number',
+        description: 'an SMS will only be repeated after this many milliseconds. Helps to limit repeats for things like repeated motion or alerts',
+      },
+      lowVoltageValue: {
+        value: '3.55',
+        type: 'range',
+        min: 1,
+        max: 4,
+        description: "a warning icon is shown over the node Icon when the node's voltage is less than this value (typically around 3.5v for a standard Moteino)",
+      },
+    },
+    location: {
+      editable: true,
+      exposed: true,
+      latitude: {
+        value: 42.3,
+        type: 'range',
+        min: -90,
+        max: 90,
+      },
+      longitude: {
+        value: -83.5,
+        type: 'range',
+        min: -180,
+        max: 180,
+      },
+    },
+    radiothermostat: {
+      editable: true,
+      exposed: true,
+      ip: {
+        value: '192.168.1.100',
+        description: 'If you have a wifi RadioThermostat CT50/CT80 this is the IP address',
+      },
+    },
+    interface: {
+      editable: true,
+      exposed: true,
+      uiTitle: {
+        value: 'MyThingsController',
+        type: 'text',
+      },
+      responsive: {
+        value: 'true',
+        description: 'nodelist becomes a responsive tile grid when screen is larger than [768,1020px]. This settting affects all UI clients.',
+        type: 'checkbox',
+      },
+    },
+    misc: {
+      editable: true,
+      exposed: true,
+      ipcam_snapURL: {
+        value: 'http://192.168.1.100/picture/2/current/',
+        description: 'Snapshot URL of IPCamera',
+      },
+    },
+  },
+}
