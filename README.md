@@ -8,7 +8,7 @@ Thank you very much Felix.
 <br/>
 
 ### A little history:
-I really liked the functionality and the speed of [Felix Rusu's] software and I used it as the base for my own implementation.
+I really liked the functionality and the speed of [Felix Rusu's](https://github.com/LowPowerLab) software and I used it as the base for my own implementation.
 <br/>I did not have great success with SD cards in Raspberry Pis in the past so this lead to some changed, things escalated and a different approach was born.
 <br/>To avoid confusion with original PiGateway, I renamed my version as MyThingsHub.
 
