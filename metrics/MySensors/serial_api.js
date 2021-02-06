@@ -17,7 +17,7 @@ exports.metrics = {
   KWH : { name:'KWH', regexp:/\b(?:18|V_KWH)\:([-\d\.]+)\b/i, value:'', duplicateInterval:3600, unit:'kWh', pin:1, graph:1, graphValSuffix:'C', graphOptions:{ legendLbl:'Energy' }},
   /* V_POWER_FACTOR -  56 */
   POWER_FACTOR : { name:'POWER_FACTOR', regexp:/\b(?:56|V_POWER_FACTOR)\:([-\d\.]+)\b/i, value:'', duplicateInterval:3600, unit:'kWh', pin:1, graph:1, graphValSuffix:'C', graphOptions:{ legendLbl:'Energy' }},
-//node --trace-warnings
+
   /***   INTERNAL   ***/ 
   /* I_BATTERY_LEVEL -  1 */
   BATTERY : { name:'BATTERY', regexp:/\b(?:_0|I_BATTERY_LEVEL)\:(\d\d?(\.\d\d?)?|100(\.00?)?)$/i, value:'', duplicateInterval:3600, unit:'%', graph:1, graphOptions:{ legendLbl:'Battery level', lines: { lineWidth:1 }, grid: { backgroundColor: {colors:['#000', '#03c', '#08c']}}, yaxis: { min: 0, autoscaleMargin: 0.25, autoscaleBottom:false }}},
