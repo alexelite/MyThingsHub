@@ -2,15 +2,15 @@
   
 exports.metrics = {
   /* V_TEMP         -   0 */
-  C : { name:'C', regexp:/\b(?:0|V_TEMP)\:([-\d\.]+)\b/i, value:'', duplicateInterval:3600, unit:'°', pin:1, graph:1, graphValSuffix:'C', graphOptions:{ legendLbl:'Temperature' }},
+  TEMP : { name:'C', regexp:/\b(?:0|V_TEMP)\:([-\d\.]+)\b/i, value:'', duplicateInterval:3600, unit:'°', pin:1, graph:1, graphValSuffix:'C', graphOptions:{ legendLbl:'Temperature' }},
   /* V_HUM          -   1 */
-  H : { name:'H', regexp:/\b(?:1|V_HUM)\:([\d\.]+)\b/i, value:'', duplicateInterval:3600, unit:'%', pin:1, graph:1, graphOptions:{ legendLbl:'Humidity', lines: { lineWidth:1 }}},
+  HUM : { name:'H', regexp:/\b(?:1|V_HUM)\:([\d\.]+)\b/i, value:'', duplicateInterval:3600, unit:'%', pin:1, graph:1, graphOptions:{ legendLbl:'Humidity', lines: { lineWidth:1 }}},
   /* V_STATUS       -   2 */
   STATUS : { name:'STATUS', regexp:/\b(?:2|V_STATUS)\:(0|1)/i, value:'', pin:1, graph:1, graphOptions:{ yaxis: {ticks:0, min:0, autoscaleMargin:0.5 }, colors:['#4a0']}},
   /* V_PERCENTAGE   -   3 */
   PERCENTAGE : { name:'PERCENTAGE', regexp:/\b(?:3|V_PERCENTAGE)\:(\d\d?(\.\d\d?)?|100(\.00?)?)$/i, value:'', pin:1, graph:1, graphOptions:{ yaxis: {ticks:0, min:0, autoscaleMargin:0.5 }, colors:['#4a0']}},
   /* V_PRESSURE     -   4 */
-  P : { name:'P', regexp:/\b(?:3|V_PRESSURE)\:([\d\.]+)\b/i, value:'', duplicateInterval:3600, unit:'atm', pin:1, },
+  PRESSURE : { name:'P', regexp:/\b(?:3|V_PRESSURE)\:([\d\.]+)\b/i, value:'', duplicateInterval:3600, unit:'atm', pin:1, },
   /* V_WATTS        -  17 */
   WATTS : { name:'WATTS', regexp:/\b(?:17|V_WATT)\:([-\d\.]+)\b/i, value:'', duplicateInterval:3600, unit:'W', pin:1, graph:1, graphValSuffix:'C', graphOptions:{ legendLbl:'Power' }},
   /* V_KWH          -  18 */
