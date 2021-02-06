@@ -100,7 +100,7 @@ if (settings.mqtt.enabled.value === `true`){
   mqtt_client.on('connect', function () {
   if (DEBUG_MQTT) console.info('Publish MQTT...'); 
   mqtt_client.publish(settings.mqtt.state_topic.value, 'mqtt client '+mqtt_client_id+' started at '+ new Date());
-  setTimeout(mqttSubscribe,10000);
+  setTimeout(mqttSubscribe,3000);
   });
 
   mqtt_client.handleMessage = function(packet, done) {  
@@ -881,6 +881,7 @@ global.handleNodeRequest = function (existingNode, reqName, oldValue, newValue, 
 
 global.msgHistory = new Array();
 global.processData = function (data, simulated, done) {
+  var waitForDbUpdate = false;
   var regexNodeData = /\[(\d+)\]([a-z0-9!"#\$%&'()*+,.\/:;<=>?@\[\] ^_`{|}~-]+)/ig; //modifiers: g:global i:caseinsensitive
   var regexTokenizedLine = /[a-z0-9!"#\$%&'()*+,.\/:;<=>?@\[\]^_`{|}~-]+/ig; //match (almost) any non whitespace human readable character
   var regexpGeneralRequests = /^([_a-z][_a-z0-9]*)(\:[-_a-z0-9]+)?(\:[-_a-z0-9]+)?(\:[-_a-z0-9]+)?$/i; //up to 5 capture groups: [0]whole_string [1]name ([2]:optional value) ([3]:optional status) ([4]:optional extra)
@@ -904,6 +905,7 @@ global.processData = function (data, simulated, done) {
       if (existingNode.updated != undefined && (Date.now() - existingNode.updated < 500) && msgHistory[id] == msgTokens)
       {
         console.log("   DUPLICATE, skipping...");
+        done();
         return;
       }
 
@@ -944,7 +946,7 @@ global.processData = function (data, simulated, done) {
             //handle LABEL metric
             if (metric == 'LABEL') {
               nodelabel = determineValue(matchingMetric, tokenMatch);
-              existingNode.label = nodelabel.replace(/_/g," ");
+              existingNode.label = nodelabel.toString().replace(/_/g," ");
               continue;
             }
 
@@ -1041,13 +1043,22 @@ global.processData = function (data, simulated, done) {
       {
         if (settings.general.genNodeIfNoMatch.value == true || settings.general.genNodeIfNoMatch.value == 'true' || hasMatchedMetrics)
         {
-          db.insert(entry);
+          db.insert(entry)          
+          .then (()=> {
           console.info(`   [${id}] DB-Insert new _id:${id}`);
+          done();
+          })
+          .catch(()=>{
+          console.error(`   [${id}] DB-Insert new _id:${id}`);
+          done();
+          });
+          
           io.sockets.emit('UPDATENODE', entry);
           return;
         }
       }
       else {
+        waitForDbUpdate = true;
         db.update({ _id: id }, { $set : entry})
         .then (()=> {
           console.info(`[${id}] DB-Updated: processData('${data.replaceNewlines()}',${simulated}):entry=${JSON.stringify(entry)}`);
@@ -1060,11 +1071,15 @@ global.processData = function (data, simulated, done) {
         io.sockets.emit('UPDATENODE', entry);      
       }
       //handle any server side events (email, sms, custom actions)
+      if (waitForDbUpdate === false){console.error(`done() -1`); done();}
+      //else {console.error(`done() -2`);setTimeout(done,100)};
       handleNodeEvents(entry);
     });
   }
   else
   {
+    console.error(`done() -3`);
+    done();
     somethingMatched=false;
     validTokenMatched=false;
     
@@ -1379,3 +1394,8 @@ setInterval(function(){
     console.error(`periodic checking of node requests expiration`);
   });
 }, 10000);
+
+process.on('unhandledRejection', (err) => { 
+  console.error(err);
+  //process.exit(1);
+})
