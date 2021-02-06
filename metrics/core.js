@@ -61,6 +61,9 @@ exports.metrics = {
   //ex: [TYPE:MotionMote] - the value is saved directly into node.type
   TYPE : { name:'TYPE', regexp:/\[?(?:TYPE)\:(\w+)[^\s]*\]?/i, value:''},
 
+  //ex: [LABEL:Bedroom_node] - the value is saved directly into node.label
+  LABEL : { name:'LABEL', regexp:/\[?(?:LABEL)\:(\w+)[^\s]*\]?/i, value:''},
+
   //request metrics                        Grp1     Group2 (the ?: designates non-capturing group)
   //key index must match name property!
   P_TXP  : { name:'P_TXP', regexp:/^\bP_TXP\:(\d+)(?:\:(OK|INV))?$/, isRequest:true, value:'', timeout:7200 }, //timeout in seconds

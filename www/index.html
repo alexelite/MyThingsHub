@@ -1667,8 +1667,8 @@
       if (h>=24) updated = Math.floor(d)+'d' + ((s%86400)/3600).toFixed(0) + 'h'; //2d3h = two days and 3 hours ago (51hrs)
       var theColor = 'ff6600'; //dark orange //"rgb(255,125,20)";
       if (s<6) theColor = "00ee00"; //dark green
-      if (s<30) theColor = "33cc33"; //green
-      else if (s<60) theColor = 'ffbb00'; //light orange
+      if (s<60) theColor = "33cc33"; //green
+      else if (s<120) theColor = 'ffbb00'; //light orange
       if (h>=3) theColor = 'dd0000'; //red
       theColor = '#'+theColor;
       updated = updated+(agoPrefix && updated!=='now'?' ago':'');

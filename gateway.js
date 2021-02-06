@@ -1051,11 +1051,10 @@ global.processData = function (data, simulated, done) {
         db.update({ _id: id }, { $set : entry})
         .then (()=> {
           console.info(`[${id}] DB-Updated: processData('${data.replaceNewlines()}',${simulated}):entry=${JSON.stringify(entry)}`);
-          console.info(`horey`);
           done();
         })
         .catch(()=>{
-          console.info(`error ninonino`);
+          console.error(`[${id}] DB-Updated: processData('${data.replaceNewlines()}',${simulated}):entry=${JSON.stringify(entry)}`);
           done();
         });
         io.sockets.emit('UPDATENODE', entry);      
