@@ -601,14 +601,14 @@ io.sockets.on('connection', function (socket) {
     });
   });
   
-  socket.on('DELETEMETRICDATA', function (nodeId, metricKey, start, end) {
+  socket.on('DELETEMETRICDATA', function (nodeId, sensorId, metricKey, start, end) {
     var sts = Math.floor(start / 1000); //get timestamp in whole seconds
     var ets = Math.floor(end / 1000); //get timestamp in whole seconds
     db.find({ _id : nodeId }).then((entries)=>{
       if (entries.length == 1)
       {
         var dbNode = entries[0];
-        var logfile = path.join(__dirname, dbDir, dbLog.getLogName(dbNode._id, metricKey));
+        var logfile = path.join(__dirname, dbDir, dbLog.getLogName(dbNode._id, sensorId, metricKey));
         var count = dbLog.deleteData(logfile, sts, ets);
         console.info('DELETEMETRICDATA DB-Removed points:' + count);
         //if (settings.general.keepMetricLogsOnDelete.value != 'true')
@@ -617,14 +617,14 @@ io.sockets.on('connection', function (socket) {
     });
   });
 
-  socket.on('EDITMETRICDATA', function (nodeId, metricKey, start, end, newValue) {
+  socket.on('EDITMETRICDATA', function (nodeId, sensorId, metricKey, start, end, newValue) {
     var sts = Math.floor(start / 1000); //get timestamp in whole seconds
     var ets = Math.floor(end / 1000); //get timestamp in whole seconds
     db.find({ _id : nodeId }).then((entries)=> {
       if (entries.length == 1)
       {
         var dbNode = entries[0];
-        var logfile = path.join(__dirname, dbDir, dbLog.getLogName(dbNode._id, metricKey));
+        var logfile = path.join(__dirname, dbDir, dbLog.getLogName(dbNode._id, sensorId, metricKey));
         var count = dbLog.editData(logfile, sts, ets, newValue);
         console.info(`EDITMETRICDATA DB-Updated points:${count} to:${newValue}`);
         socket.emit('EDITMETRICDATA_OK', count); //post it back to requesting client only
@@ -756,14 +756,15 @@ io.sockets.on('connection', function (socket) {
       if (entries.length == 1)
       {
         var dbNode = entries[0];
-        Object.keys(dbNode.metrics).forEach(function(mKey,index) { //syncronous/blocking call
-          if (dbNode.metrics[mKey].graph == 1) {
-            var logfile = path.join(__dirname, dbDir, dbLog.getLogName(dbNode._id, mKey));
-            var theData = dbLog.getData(logfile, sts, ets, howManyPoints /*settings.general.graphMaxPoints.value*/);
-            theData.label = dbNode.metrics[mKey].label || mKey;
-            sets.push(theData); //100k points when exporting, more points is really pointless
-          }
-        });
+        for (sensorId in dbNode.metrics)
+          Object.keys(dbNode.metrics[sensorId]).forEach(function(mKey,index) { //syncronous/blocking call
+            if (dbNode.metrics[sensorId][mKey].graph == 1) {
+              var logfile = path.join(__dirname, dbDir, dbLog.getLogName(dbNode._id, sensorId, mKey));
+              var theData = dbLog.getData(logfile, sts, ets, howManyPoints /*settings.general.graphMaxPoints.value*/);
+              theData.label = dbNode.metrics[sensorId][mKey].label || mKey;
+              sets.push(theData); //100k points when exporting, more points is really pointless
+            }
+          });
         socket.emit('EXPORTNODELOGSCSVREADY', { sets:sets });
       }
     });

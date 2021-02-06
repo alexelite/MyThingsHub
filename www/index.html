@@ -1046,7 +1046,7 @@
       if (item)
       {
         if ($('#graphDeleteDataToggle').hasClass('active'))
-          socket.emit('DELETEMETRICDATA', selectedNodeId, selectedMetricKey, item.datapoint[0], item.datapoint[0]);
+          socket.emit('DELETEMETRICDATA', selectedNodeId, selectedSensorId, selectedMetricKey, item.datapoint[0], item.datapoint[0]);
         if ($('#graphEditDataToggle').hasClass('active'))
         {
           $('#editData_OK').hide();
@@ -1063,7 +1063,7 @@
       if ($('#graphDeleteDataToggle').hasClass('active'))
       {
         if (pointsInSelection)
-          socket.emit('DELETEMETRICDATA', selectedNodeId, selectedMetricKey, ranges.xaxis.from, ranges.xaxis.to);
+          socket.emit('DELETEMETRICDATA', selectedNodeId, selectedSensorId, selectedMetricKey, ranges.xaxis.from, ranges.xaxis.to);
         else {
           $("#tooltip").html('<span style="color:red"><b>Nothing to delete:</b><br>No data points in selected interval</span>')
             .css({top: graphBottomPosition(metricGraphWrapper)-60, left: $(window).width()/2-50}).fadeIn(20);
@@ -2350,7 +2350,7 @@
     });
 
     $("#editData_OK").click("tap", function(event) {
-      socket.emit('EDITMETRICDATA', selectedNodeId, selectedMetricKey, editDataStart, editDataEnd, $("#editDataNewValue").val());
+      socket.emit('EDITMETRICDATA', selectedNodeId, selectedSensorId, selectedMetricKey, editDataStart, editDataEnd, $("#editDataNewValue").val());
     });
         
     $("#processExit_yes").click("tap", function(event) {
