@@ -40,6 +40,7 @@ var coreMetricsFilePath = './metrics/core.js';
 nconf.argv().file({ file: './settings.json5', format: JSON5 });
 global.settings = nconf.get('settings');
 var dbLog = require('./logUtil.js');
+var mysensors = require('./mysensors.js');
 io = require('socket.io').listen(settings.general.socketPort.value);
 var serialport = require("serialport");                         //https://github.com/node-serialport/node-serialport
 const Datastore = require('nedb-promises');                      //https://github.com/bajankristof/nedb-promises
@@ -56,6 +57,7 @@ global.parser=undefined;
 var unmatchedDataDB = null;
 
 const DEBUG_MQTT = true;
+const DEBUG_DB  = false; 
 
 if (settings.database.nonMatchesName.value)
   unmatchedDataDB = new Datastore({ filename: path.join(__dirname, dbDir, settings.database.nonMatchesName.value), autoload: true });
@@ -92,20 +94,41 @@ if (settings.mqtt.enabled.value === `true`){
 
   if (DEBUG_MQTT) console.info('Starting MQTT...');
   var mqtt_client = mqtt.connect('mqtt://'+settings.mqtt.host.value, mqtt_Options);
+
   function mqttSubscribe(){
-    if (DEBUG_MQTT) console.info('Subscribing MQTT...');
-    mqtt_client.subscribe(settings.mqtt.subscribe_topic.value+'/#');
+    if (settings.mqtt.subscribe_topic.value !=''){
+      if (DEBUG_MQTT) console.info(`Subscribing MQTT topic${settings.mqtt.subscribe_topic.value}`);
+      mqtt_client.subscribe(settings.mqtt.subscribe_topic.value +'/#');
+    }
+    if (settings.mqtt.mysensors_subscribe_topic.value !=''){
+      if (DEBUG_MQTT) console.info(`Subscribing MQTT topic${settings.mqtt.mysensors_subscribe_topic.value}`);
+      mqtt_client.subscribe(settings.mqtt.mysensors_subscribe_topic.value +'/#');
+    }    
   }
 
   mqtt_client.on('connect', function () {
   if (DEBUG_MQTT) console.info('Publish MQTT...'); 
   mqtt_client.publish(settings.mqtt.state_topic.value, 'mqtt client '+mqtt_client_id+' started at '+ new Date());
-  setTimeout(mqttSubscribe,3000);
+  mqttSubscribe();
   });
 
-  mqtt_client.handleMessage = function(packet, done) {  
-    console.log('INCOMING MQTT: ' + packet.topic + ' ' + packet.payload.toString());
-    processData(packet.payload.toString().replace(/\0/g), false, done);
+  mqtt_client.handleMessage = function(packet, done) {
+    var source = ''; 
+    var message = '';
+    //mysensors parsing
+    if (packet.topic.includes(settings.mqtt.mysensors_subscribe_topic.value)){ 
+      if (DEBUG_MQTT) console.log('INCOMING MYSENSORS MQTT: ' + packet.topic + ' ' + packet.payload.toString());
+      packet.topic = packet.topic.split(settings.mqtt.mysensors_subscribe_topic.value+"/")
+      packet.topic = packet.topic[1];
+      source = "MYSENSORS_MQTT";
+      message = mysensors.processMySensors(packet.payload, packet.topic);
+    }else{ //moteino message parsing
+      if (DEBUG_MQTT) console.log('INCOMING MQTT: ' + packet.topic + ' ' + packet.payload.toString());
+      
+      source = "MQTT";
+      message = packet.payload.toString().replace(/\0/g);
+    }
+    processData(message, source, done);
   }
 
   // MQTT INCOMING
@@ -136,7 +159,7 @@ if (settings.serial.enabled.value === `true`){
     if (reopen && port.isOpen) port.close();
     port = new serialport(settings.serial.port.value, {baudRate : settings.serial.baud.value});
     parser = port.pipe(new serialport.parsers.Readline()); //new serialport.parsers.Readline(); //port.pipe(parser);
-    parser.on('data', function(data) { processData(data.replace(/\0/g, ''),false,()=>{}); }); //replace nulls in received string
+    parser.on('data', function(data) { processData(data.replace(/\0/g, ''),settings.serial.port.value,()=>{}); }); //replace nulls in received string
     port.on('error', function serialErrorHandler(error) {
       msg = 'node-serialport error:' + error.message;
       console.error(msg);
@@ -421,7 +444,7 @@ io.sockets.on('connection', function (socket) {
         dbNode.icon = node.icon||undefined;
         dbNode.settings = node.settings||undefined;
         dbNode.hidden = (node.hidden == 1 ? 1 : undefined);
-        db.update({ _id: dbNode._id }, { $set : dbNode}).then(() => { console.log('UPDATENODESETTINGS records replaced:' /*+ numReplaced);*/ );});
+        db.update({ _id: dbNode._id }, { $set : dbNode}).then(() => { if (DEBUG_DB)  if (DEBUG_DB) console.log('UPDATENODESETTINGS records replaced:' /*+ numReplaced);*/ );});
         socket.broadcast.emit('UPDATENODE', dbNode); //sent changes to all clients except sender socket
       }
     });
@@ -436,7 +459,7 @@ io.sockets.on('connection', function (socket) {
         dbNode.metrics[sensorId][metricKey].pin = (metric.pin==1) ? Date.now() : metric.pin;
         dbNode.metrics[sensorId][metricKey].graph = metric.graph;
         db.update({ _id: dbNode._id }, { $set : dbNode})
-        .then (()=> { console.log('UPDATEMETRICSETTINGS records replaced:'/* + numReplaced*/); });
+        .then (()=> { if (DEBUG_DB)  console.log('UPDATEMETRICSETTINGS records replaced:'/* + numReplaced*/); });
         io.sockets.emit('UPDATENODE', dbNode); //post it back to all clients to confirm UI changes
       }
     });
@@ -483,7 +506,7 @@ io.sockets.on('connection', function (socket) {
 
             if (!scheduled)
             {
-              db.update({ _id: dbNode._id }, { $set : dbNode}).then(() => { console.log('UPDATEMETRICSETTINGS records replaced:'/* + numReplaced*/); });
+              db.update({ _id: dbNode._id }, { $set : dbNode}).then(() => { if (DEBUG_DB)  console.log('UPDATEMETRICSETTINGS records replaced:'/* + numReplaced*/); });
               io.sockets.emit('UPDATENODE', dbNode); //post it back to all clients to confirm UI changes
             }
             return;
@@ -516,7 +539,7 @@ io.sockets.on('connection', function (socket) {
           }
         }
         dbNode.multiGraphs=newGraph;
-        db.update({ _id: dbNode._id }, { $set : dbNode}).then(()=> { console.log('UPDATEMETRICSETTINGS records replaced:'/* + numReplaced*/); });
+        db.update({ _id: dbNode._id }, { $set : dbNode}).then(()=> { if (DEBUG_DB)  console.log('UPDATEMETRICSETTINGS records replaced:'/* + numReplaced*/); });
         io.sockets.emit('UPDATENODE', dbNode); //post it back to all clients to confirm UI changes
       }
     });
@@ -528,7 +551,7 @@ io.sockets.on('connection', function (socket) {
       {
         var dbNode = entries[0];
         dbNode.multiGraphs = undefined;
-        db.update({ _id: dbNode._id }, { $set : dbNode}).then(()=> { /*console.log('UPDATEMETRICSETTINGS records replaced:' + numReplaced);*/ });
+        db.update({ _id: dbNode._id }, { $set : dbNode}).then(()=> {  if (DEBUG_DB) console.log('UPDATEMETRICSETTINGS records replaced:'/* + numReplaced*/); });
         io.sockets.emit('UPDATENODE', dbNode); //post it back to all clients to confirm UI changes
       }
     });
@@ -578,7 +601,7 @@ io.sockets.on('connection', function (socket) {
       {
         var dbNode = entries[0];
         delete(dbNode.metrics[sensorId][metricKey]);
-        db.update({ _id: dbNode._id }, { $set : dbNode}).then(()=> { console.info('DELETENODEMETRIC DB-Replaced:' /*+ numReplaced*/); });
+        db.update({ _id: dbNode._id }, { $set : dbNode}).then(()=> { if (DEBUG_DB)  console.info('DELETENODEMETRIC DB-Replaced:' /*+ numReplaced*/); });
         if (settings.general.keepMetricLogsOnDelete.value != 'true')
           dbLog.removeMetricLog(path.join(__dirname, dbDir, dbLog.getLogName(dbNode._id, sensorId, metricKey)));
         io.sockets.emit('UPDATENODE', dbNode); //post it back to all clients to confirm UI changes
@@ -595,7 +618,7 @@ io.sockets.on('connection', function (socket) {
         reqValue = dbNode.requests[requestKey].value;
         sendMessageToGateway(dbNode._id+':VOID:'+reqName+(reqValue?':'+reqValue:'')); //remove pending request from gateway's REQUEST queue
         delete(dbNode.requests[requestKey]);
-        db.update({ _id: dbNode._id }, { $set : dbNode}).then(()=> { console.info('DELETENODEREQUEST DB-Replaced:'/* + numReplaced*/); });
+        db.update({ _id: dbNode._id }, { $set : dbNode}).then(()=> { if (DEBUG_DB)  console.info('DELETENODEREQUEST DB-Replaced:'/* + numReplaced*/); });
         io.sockets.emit('UPDATENODE', dbNode); //post it back to all clients to confirm UI changes
       }
     });
@@ -653,7 +676,7 @@ io.sockets.on('connection', function (socket) {
   });
   
   socket.on('SIMULATEDMESSAGE', function (str) {
-    if (str) processData(str, true,()=>{});
+    if (str) processData(str, "SIMULATED_MESSAGE",()=>{});
   });
 
   socket.on('GATEWAYMESSAGE', function (msg) {
@@ -707,7 +730,7 @@ io.sockets.on('connection', function (socket) {
         requestString += 'REQUESTQUEUE:' + nodeId + ':' + reqName + (reqValue?':'+reqValue.trim():'') + '\n';
         sendMessageToGateway(requestString);
         console.info('REQUEST SENT: ' + requestString.replaceNewlines());
-        db.update({ _id: dbNode._id }, { $set : dbNode}).then(()=> { console.info('SUBMITNODEREQUEST DB-Replaced:' /*+ numReplaced*/); });
+        db.update({ _id: dbNode._id }, { $set : dbNode}).then(()=> { if (DEBUG_DB)  console.info('SUBMITNODEREQUEST DB-Replaced:' /*+ numReplaced*/); });
         console.info(`   [${nodeId}] ${(isNew?'Added':'Updated')} request:${reqName}`);
         socket.emit('LOG', 'NODE ['+nodeId+'] Request '+(isNew?'Added':'Updated')+': ' + reqName);
         io.sockets.emit('UPDATENODE', dbNode);
@@ -881,14 +904,15 @@ global.handleNodeRequest = function (existingNode, reqName, oldValue, newValue, 
 }
 
 global.msgHistory = new Array();
-global.processData = function (data, simulated, done) {
+global.processData = function (data, source, done) {
+  if (data == undefined) data = '';
   var waitForDbUpdate = false;
   var regexNodeData = /\[(\d+)\]([a-z0-9!"#\$%&'()*+,.\/:;<=>?@\[\] ^_`{|}~-]+)/ig; //modifiers: g:global i:caseinsensitive
   var regexTokenizedLine = /[a-z0-9!"#\$%&'()*+,.\/:;<=>?@\[\]^_`{|}~-]+/ig; //match (almost) any non whitespace human readable character
   var regexpGeneralRequests = /^([_a-z][_a-z0-9]*)(\:[-_a-z0-9]+)?(\:[-_a-z0-9]+)?(\:[-_a-z0-9]+)?$/i; //up to 5 capture groups: [0]whole_string [1]name ([2]:optional value) ([3]:optional status) ([4]:optional extra)
   var regexpSensorId = /^(\d+)\:([a-z0-9!"#\$%&'()*+,.\/:;<=>?@\[\] ^_`{|}~-]+)/i; //sensorId(number):key:value
   var match = regexNodeData.exec(data);
-  let log = `${settings.serial.port.value}${simulated?'(simulated)':''}>:` + data;
+  let log = `${source}>:` + data;
   console.log(log)
   io.sockets.emit('LOG', log);
   //first try to match normal data from nodes: [nodeID] token:value ... token:value RSSI:-XX
@@ -907,9 +931,10 @@ global.processData = function (data, simulated, done) {
       {
         console.log("   DUPLICATE, skipping...");
         done();
+        if (DEBUG_MQTT) console.info(`handleMessage() - callback`);
         return;
       }
-
+      
       msgHistory[id] = msgTokens;
       existingNode._id = id;
       existingNode.updated = Date.now(); //update timestamp we last heard from this node, regardless of any matches
@@ -980,7 +1005,7 @@ global.processData = function (data, simulated, done) {
             existingNode.metrics[sensorId][matchingMetric.name].updated = existingNode.updated;
             existingNode.metrics[sensorId][matchingMetric.name].pin = existingNode.metrics[sensorId][matchingMetric.name].pin != undefined ? existingNode.metrics[sensorId][matchingMetric.name].pin : matchingMetric.pin;
             existingNode.metrics[sensorId][matchingMetric.name].graph = existingNode.metrics[sensorId][matchingMetric.name].graph != undefined ? existingNode.metrics[sensorId][matchingMetric.name].graph : matchingMetric.graph;
-
+            
             //log data for graphing purposes, keep labels as short as possible since this log will grow indefinitely and is not compacted like the node database
             if (existingNode.metrics[sensorId][matchingMetric.name].graph==1)
             {
@@ -997,7 +1022,7 @@ global.processData = function (data, simulated, done) {
               else console.log('   METRIC NOT NUMERIC, logging skipped... (extracted value:' + graphValue + ')');
             }
 
-            if (matchingMetric.name != 'RSSI') hasMatchedMetrics = true; //excluding RSSI because noise can produce a packet with a valid RSSI reading
+            if (matchingMetric.name /*!= 'RSSI'*/) hasMatchedMetrics = true; //excluding RSSI because noise can produce a packet with a valid RSSI reading
             break; //--> this stops matching as soon as 1 metric definition regex is matched on the data. You could keep trying to match more definitions and that would create multiple metrics from the same data token, but generally this is not desired behavior. In that case the on-the-fly request matching section below should be done conditionally - only if no defined metrics matched
           }
         }
@@ -1046,12 +1071,14 @@ global.processData = function (data, simulated, done) {
         {
           db.insert(entry)          
           .then (()=> {
-          console.info(`   [${id}] DB-Insert new _id:${id}`);
+            if (DEBUG_DB) console.info(`   [${id}] DB-Insert new _id:${id}`);
           done();
+          if (DEBUG_MQTT) console.info(`handleMessage() - callback`);
           })
           .catch(()=>{
-          console.error(`   [${id}] DB-Insert new _id:${id}`);
+            if (DEBUG_DB) console.error(`   [${id}] DB-Insert new _id:${id}`);
           done();
+          if (DEBUG_MQTT) console.info(`handleMessage() - callback`);
           });
           
           io.sockets.emit('UPDATENODE', entry);
@@ -1062,25 +1089,29 @@ global.processData = function (data, simulated, done) {
         waitForDbUpdate = true;
         db.update({ _id: id }, { $set : entry})
         .then (()=> {
-          console.info(`[${id}] DB-Updated: processData('${data.replaceNewlines()}',${simulated}):entry=${JSON.stringify(entry)}`);
+          if (DEBUG_DB) console.info(`[${id}] DB-Updated: processData('${data.replaceNewlines()}',${source}):entry=${JSON.stringify(entry)}`);
           done();
+          if (DEBUG_MQTT) console.info(`handleMessage() - callback`);
         })
         .catch(()=>{
-          console.error(`[${id}] DB-Updated: processData('${data.replaceNewlines()}',${simulated}):entry=${JSON.stringify(entry)}`);
+          console.error(`[${id}] DB-Updated: processData('${data.replaceNewlines()}',${source}):entry=${JSON.stringify(entry)}`);
           done();
+          if (DEBUG_MQTT) console.info(`handleMessage() - callback`);
         });
         io.sockets.emit('UPDATENODE', entry);      
       }
+      if (waitForDbUpdate === false){
+        done();
+        if (DEBUG_MQTT) console.info(`handleMessage() - callback`);
+      }
       //handle any server side events (email, sms, custom actions)
-      if (waitForDbUpdate === false){console.error(`done() -1`); done();}
-      //else {console.error(`done() -2`);setTimeout(done,100)};
       handleNodeEvents(entry);
     });
   }
   else
   {
-    console.error(`done() -3`);
     done();
+    if (DEBUG_MQTT) console.info(`handleMessage() - callback`);
     somethingMatched=false;
     validTokenMatched=false;
     
@@ -1323,7 +1354,7 @@ global.schedule = function(node, eventKey) {
   //save to DB
   db.findOne({_id:node._id}).then((dbNode)=> {
     dbNode.events = node.events;
-    db.update({_id:dbNode._id}, { $set : dbNode }).then(()=> { console.info(`[${dbNode._id}] DB-Updated: schedule(${eventKey}):dbNode=${JSON.stringify(dbNode)}`);});
+    db.update({_id:dbNode._id}, { $set : dbNode }).then(()=> { if (DEBUG_DB) console.info(`[${dbNode._id}] DB-Updated: schedule(${eventKey}):dbNode=${JSON.stringify(dbNode)}`);});
     io.sockets.emit('UPDATENODE', dbNode); //push updated node to client sockets
   });
 }

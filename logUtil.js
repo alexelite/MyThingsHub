@@ -123,7 +123,7 @@ exports.postData = function post(filename, timestamp, value, duplicateInterval) 
 
   var fd;
   var buff = Buffer.alloc(9);
-  var lastTime = 0, lastValue = 0, pos = 0;
+  var secondLastValue =0, lastTime = 0, lastValue = 0, pos = 0;
   value=Math.round(value*10000); //round to make an exactly even integer
 
   //prepare 9 byte buffer to write
@@ -131,20 +131,36 @@ exports.postData = function post(filename, timestamp, value, duplicateInterval) 
   buff.writeUInt32BE(timestamp,1); //timestamp 4 bytes
   buff.writeInt32BE(value,5);     //value 4 bytes
 
-  // If there is data then read last value
+  // If there is at least one value 
   if (logsize>=9) {
-    // read the last value appended to the file
     fd = fs.openSync(filename, 'r');
-    var buf8 = Buffer.alloc(8);
-
-    fs.readSync(fd, buf8, 0, 8, logsize-8);
-    lastTime = buf8.readUInt32BE(0); //read timestamp (bytes 0-3 in buffer)
-    lastValue = buf8.readInt32BE(4); //read value (bytes 4-7 in buffer)
-    fs.closeSync(fd);
-
+    //If at least 2 values in file, read last two
+    if (logsize>=18){ 
+      var buf13 = Buffer.alloc(13);
+      fs.readSync(fd, buf13, 0, 13, logsize-13);
+      secondLastValue = buf13.readInt32BE(0); //read second last value (bytes 0-3 in buffer)
+      lastTime = buf13.readUInt32BE(5); //read last timestamp (bytes 5-8 in buffer)
+      lastValue = buf13.readInt32BE(9); //read last value (bytes 9-13 in buffer)
+      fs.closeSync(fd);
+    }
+    else{
+      // read the only value in the file
+      var buf8 = Buffer.alloc(8);
+      fs.readSync(fd, buf8, 0, 8, logsize-8);
+      lastTime = buf8.readUInt32BE(0); //read timestamp (bytes 0-3 in buffer)
+      lastValue = buf8.readInt32BE(4); //read value (bytes 4-7 in buffer)
+      fs.closeSync(fd);
+    }
     if (timestamp > lastTime)
     {
-      if (value != lastValue || (duplicateInterval==null || timestamp-lastTime>duplicateInterval)) //only write new value if different than last value or duplicateInterval seconds has passed (should be a setting?)
+      //If metric duplicateInterval not passed yet and new value == last value == second last value => update last timestamp to new timestamp 
+      if ((secondLastValue == lastValue && lastValue == value) && (duplicateInterval!=null && timestamp-lastTime<duplicateInterval)){
+        fd = fs.openSync(filename, 'r+');
+        fs.writeSync(fd, buff, 0, 9, logsize-9);
+        fs.closeSync(fd);
+      }
+      //only write new value if different than last value or duplicateInterval seconds has passed  or not set
+      else if ((secondLastValue != lastValue && lastValue == value && duplicateInterval!=null ) || (value != lastValue || duplicateInterval==null || timestamp-lastTime>duplicateInterval)) 
       {
         //timestamp is in the future, append
         fd = fs.openSync(filename, 'a');

@@ -569,7 +569,8 @@
         <br/>
         <img src="images/loading.gif" />
       </div>
-     </div>
+      <ul id="metricStats" data-role="listview" data-inset="true" data-theme="a" data-dividertheme="b"></ul>
+    </div>
   </div>
 
   <div data-role="page" id="requestdetails">
@@ -1345,7 +1346,7 @@
         var color = seriesArray[skey].options.colors ? seriesArray[skey].options.colors[0] : null;
         graphData.push({data:seriesRaw, label:seriesArray[skey].options.legendLbl, yaxis:axisIndex++, lines:lines, points:points, color:color});
 
-        //add new yaxis
+        //add new yaxis //TODO metric definition missing -> type def error
         metricLabel=nodes[selectedNodeId].metrics[seriesArray[skey].options.sensorId][seriesArray[skey].options.metricName].label;
         yaxisOptions = $.extend(true, yaxisOptions, {position:((axisIndex%2)?'right':'left'), min:min, max:max, axisLabel:seriesArray[skey].options.legendLbl+' ('+metricLabel+')', axisLabelUseCanvas:true, axisLabelFontSizePixels:11, metricName:seriesArray[skey].options.metricName});
         graphOptions.xaxis.min = graphView.start;
@@ -1507,16 +1508,20 @@
       return label;
     }
 
+    function getNested(obj, ...args) {
+      return args.reduce((obj, level) => obj && obj[level], obj)
+    }
+
     function getNodeIcon(node) {
       if (node.icon) return node.icon;
-      var iconDefault = (node.metrics && node.metrics[0].RSSI == undefined) ? 'icon_default_LAN.png' : 'icon_default.png';
+      var iconDefault = (node.metrics && getNested(node.metrics, 0, 'RSSI') == undefined) ? 'icon_default_LAN.png' : 'icon_default.png';
       if (motesDef != undefined && node.type != undefined && motesDef[node.type] != undefined)
         return motesDef[node.type].icon || iconDefault;
       return iconDefault;
     };
 
     function resolveRSSIImage(node) {
-      if (!node.metrics || !node.metrics[0].RSSI) return '';
+      if (!node.metrics || !getNested(node.metrics, 0, 'RSSI')) return '';
       rssi = node.metrics[0].RSSI.value;
       var img;
       if (Math.abs(rssi) > 95) img = 'rssi_7.png';
@@ -2052,6 +2057,27 @@
         $("#btnGraphMetric").hide();
         $("div[ui-role='loadingmetricgraph']").hide();
       }
+
+      //populate metrics statistics
+      //TODO only display if metric has log
+      $('#metricStats').empty();
+      // var hasGraphedMetrics = false;
+      // for (var sensorId in node.metrics)
+      //   for(var key in node.metrics[sensorId])
+      //   {
+      //     var metric = node.metrics[sensorId][key];
+      //     var metricValue = metricsValues({[sensorId]:metric}, true);
+          var newLI = $('<li "id="' + metric.label + '"><a "metric-id="' + metric.label + '" href="#metricstats" class="metricdetails">' + metric.label + ' ' + '<span class="ui-li-count ui-li-count16">' + metric.value + (metric.unit || '') +  '</span></a></li>');
+          $('#metricStats').append(newLI);
+        //   if (key == selectedMetricKey && (['metricdetails'].indexOf($.mobile.activePage.attr('id')) > -1))
+        //   {
+        //     $('.metricUpdated').html(ago(metric.updated, 0).tag);
+        //     $('#metricValue').val(metric.value + (metric.unit || ''));
+        //     if (metric.graph) addGraphDataPoint([(new Date()).getTime()-serverTimeOffset, metric.value]);
+        //   }
+        //   if (metric.graph) hasGraphedMetrics = true;
+        // }
+      $('#metricStats').listview().listview('refresh');
     }
 
     function refreshRequestDetails(request) {

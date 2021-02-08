@@ -151,7 +151,7 @@ exports.determineGraphValue = function(matchingMetric, matchingToken) {
   if (matchingMetric.valuation != undefined)
   {
     //console.log('Valuating: ' + actualValueToProcess);
-    result = matchingMetric.valuation(actualValueToProcess);
+    result = matchingMetric.valuation(actualValueToProcess,true);
   }
   else result = matchingMetric.value || actualValueToProcess;
   if (exports.isNumeric(result))
