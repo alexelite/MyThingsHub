@@ -341,6 +341,27 @@ global.getGraphData = function(nodeId, sensorId, metricKey, start, end, exportMo
   return { graphData:graphData, options : graphOptions };
 }
 
+global.getGraphStatistics = function(nodeId, sensorId, metricKey, start, end, exportMode) {
+  var sts = Math.floor(start / 1000); //get timestamp in whole seconds
+  var ets = Math.floor(end / 1000); //get timestamp in whole seconds
+  var logfile = path.join(__dirname, dbDir, dbLog.getLogName(nodeId, sensorId, metricKey));
+  var graphData = dbLog.getStatistics(logfile, sts, ets, exportMode ? 100000 : settings.general.graphMaxPoints.value); //100k points when exporting, more points is really pointless
+  var graphOptions={};
+  for(var k in metricsDef.metrics)
+  {
+    if (metricsDef.metrics[k].name == metricKey)
+    {
+      if (metricsDef.metrics[k].graphOptions != undefined){
+        graphOptions = metricsDef.metrics[k].graphOptions;
+        graphOptions.sensorId = sensorId;
+      }
+      break;
+    }
+  }
+  graphOptions.metricName=metricKey;
+  return { graphData:graphData, options : graphOptions };
+}
+
 global.getNodeIcons = function(dir, files_, steps){
   files_ = files_ || [];
   dir = dir || __dirname + '/www/images';
@@ -538,7 +559,7 @@ io.sockets.on('connection', function (socket) {
             }
           }
         }
-        dbNode.multiGraphs=newGraph;
+        dbNode.multiGraphs[0]=newGraph;
         db.update({ _id: dbNode._id }, { $set : dbNode}).then(()=> { if (DEBUG_DB)  console.log('UPDATEMETRICSETTINGS records replaced:'/* + numReplaced*/); });
         io.sockets.emit('UPDATENODE', dbNode); //post it back to all clients to confirm UI changes
       }
@@ -756,13 +777,15 @@ io.sockets.on('connection', function (socket) {
         {
           //var multiGraphKeysArray = dbNode.multiGraphs[multiGraphId];
           Object.keys(dbNode.metrics).forEach(function(sensorId,index) { //syncronous/blocking call
-            var multiGraphKeysArray = dbNode.multiGraphs[sensorId];
-            Object.keys(dbNode.metrics[sensorId]).forEach(function(mKey,index) {
-              if (multiGraphKeysArray.includes(mKey) && dbNode.metrics[sensorId][mKey].graph == 1) {
-                var graphData = getGraphData(nodeId, sensorId, mKey, start, end, exportMode);
-                series.push(graphData);
-              }
-            });
+            var multiGraphSensorsIdArray = dbNode.multiGraphs[multiGraphId];
+            if (multiGraphSensorsIdArray!=undefined)
+              Object.keys(dbNode.metrics[sensorId]).forEach(function(mKey,index) {
+                if (multiGraphSensorsIdArray[sensorId] && multiGraphSensorsIdArray[sensorId].includes(mKey) && dbNode.metrics[sensorId][mKey].graph == 1) {
+                  var graphData = getGraphData(nodeId, sensorId, mKey, start, end, exportMode);
+                  var graphStats = getGraphStatistics(nodeId, sensorId, mKey, start, end, exportMode);
+                  series.push(graphData);
+                }
+              });
           });
           socket.emit(exportMode ? 'EXPORTMULTIGRAPHDATAREADY' : 'MULTIGRAPHDATAREADY', series);
         }

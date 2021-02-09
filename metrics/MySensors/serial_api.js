@@ -63,9 +63,11 @@ exports.events = {
 }
 
 exports.motes = {
-  WeatherMote: {
-    label  : 'Weather Sensor',
-    icon   : 'icon_weather.png',
-    settings: { lowVoltageValue: '' }, //blank will make it inherit from global settings.json lowVoltageValue, a specific value overrides the general setting, user can always choose his own setting in the UI
-  },
+  STATUS: {
+    label   : 'Light Switch',
+    icon : 'icon_switchmote.png',
+    controls : { B : { states: [{ label:'Off', action:'BTN1:1', css:'background-color:#FF9B9B;', icon:'power', condition:''+function(node) { return node.metrics['B1'] ? node.metrics['B1'].value == 'OFF' : false; }},
+                                { label:'On',  action:'BTN1:0', css:'background-color:#9BFFBE;color:#000000', icon:'power', condition:''+function(node) { return node.metrics['B1'] ? node.metrics['B1'].value == 'ON' : false; }}]},
+               },
+          },
 }

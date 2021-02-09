@@ -112,6 +112,80 @@ exports.getData = function(filename, start, end, dpcount) {
   };
 }
 
+// var now = new Date();
+// var startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+// var timestamp = startOfDay / 1000;
+
+// filename:  binary file to append new data point to
+// start:  (seconds since unix epoch)
+// end:     (seconds since unix epoch)
+// dpcount: ??
+exports.getStatistics = function(filename, start, end, dpcount) {
+  dpcount = dpcount || 1500;
+  if (dpcount<1) dpcount = 1;
+  if (start > end) return {};
+  var ts = new Date();
+  var startDay =  start - (start % 86400); // get start of first day interval
+  var endDay =  end - (end % 86400) + 86400; //get end of last day interval
+  data = [];
+  filesize = exports.fileSize(filename);
+  if (filesize == -1) return {data:data, queryTime:0, msg:'no log data'};
+  fd = fs.openSync(filename, 'r');
+  //truncate start/end to log time limits if necessary - this ensures good data resolution when time limits are out of bounds
+  var buff = Buffer.alloc(9);
+  fs.readSync(fd, buff, 0, 9, 0);
+  var firstLogTimestamp = buff.readUInt32BE(1);
+  var firstValue = buff.readUInt32BE(5);
+  fs.readSync(fd, buff, 0, 9, filesize-9);
+  var lastLogTimestamp = buff.readUInt32BE(1);
+  var lastValue = buff.readUInt32BE(5);
+  if (startDay < firstLogTimestamp) {
+    startDay = firstLogTimestamp - (firstLogTimestamp % 86400) + 86400;
+    start = firstLogTimestamp;
+  }
+  if (endDay > lastLogTimestamp) {
+    endDay = lastLogTimestamp - (lastLogTimestamp % 86400);
+    end = lastLogTimestamp;
+  }
+  timetmp = 0;
+  last_time  = 0;
+  var item ={};
+  days = (endDay - startDay)/86400;
+  //if we don't have a full day to start with 
+  if (start = firstLogTimestamp){
+    item = {t:start*1000, v:firstValue/10000};
+    data.push(item);
+  }
+  for (var i=0; i<days; i++)
+  {
+    pos = exports.binarySearch(fd,startDay+(i*86400),filesize);
+    last_time = timetmp;
+    fs.readSync(fd, buff, 0, 9, pos);
+    timetmp = buff.readUInt32BE(1);
+    //if (buff.readUInt8(0) !== 0) { deleted++;continue; } //skip deleted data
+    if (!(timetmp >= start && timetmp <= end)) continue;
+    value = buff.readInt32BE(5);
+
+    if ((timetmp!=last_time && timetmp>last_time) || last_time==0) {
+      var item = {t:timetmp*1000, v:value/10000};
+      data.push(item);
+    }
+    if (pos == filesize-9) break;
+  }
+  if (end = lastLogTimestamp){
+    item = {t:lastLogTimestamp*1000, v:lastValue/10000};
+    data.push(item);
+  }
+  fs.closeSync(fd);
+  return {
+    data:data,
+    queryTime:(new Date() - ts),
+    //totalIntervalDatapoints: (posEnd-posStart)/9+1-deleted,
+    //totalDatapoints:filesize/9-deleted,
+    logSize:filesize
+  };
+}
+
 // filename:  binary file to append new data point to
 // timestamp: data point timestamp (seconds since unix epoch)
 // value:     data point value (signed integer)

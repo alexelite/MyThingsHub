@@ -1917,52 +1917,57 @@
 
       //handle node controls/buttons
       $('#nodeControls').hide();
-      if (motesDef[node.type] && motesDef[node.type].controls)
-      {
-        $('#nodeControls').empty();
-        for (var cKey in motesDef[node.type].controls)
-        {
-          var control = motesDef[node.type].controls[cKey];
-          if (control.showCondition)
+      $('#nodeControls').empty();
+      Object.keys(node.metrics).forEach(function(sensorId,index) {
+        //??var metricKeysArray = node.sensorId[multiGraphId];
+        Object.keys(node.metrics[sensorId]).forEach(function(mKey,index) {
+          if (motesDef[mKey] && motesDef[mKey].controls)
           {
-            var f = eval('(' + control.showCondition + ')'); //using eval is generally a bad idea but there is no way to pass functions in JSON via websockets so we pass them as strings instead
-            if (!f(node)) continue;
-          }
-
-          for (var sKey in control.states)
-          {
-            var state = control.states[sKey];
-            if (state.condition)
+            for (var cKey in motesDef[mKey].controls)
             {
-              var f = eval('(' + state.condition + ')'); //using eval is generally a bad idea but there is no way to pass functions in JSON via websockets so we pass them as strings instead
-              if (!f(node)) continue;
+              var control = motesDef[mKey].controls[cKey];
+              // if (control.showCondition)
+              // {
+              //   var f = eval('(' + control.showCondition + ')'); //using eval is generally a bad idea but there is no way to pass functions in JSON via websockets so we pass them as strings instead
+              //   if (!f(node)) continue;
+              // }
+              if(control.states && control.states[node.metrics[sensorId][mKey].value])
+              //for (var sKey in control.states)
+              {//function(node) { return node.metrics['B1'] ? node.metrics['B1'].value == 'OFF'
+                var state = control.states[node.metrics[sensorId][mKey].value];
+                if (state.condition)
+                {
+                  var f = eval('(' + state.condition + ')'); //using eval is generally a bad idea but there is no way to pass functions in JSON via websockets so we pass them as strings instead
+                  //if (!f(node)) continue;
+                }
+                var newBtn = $('<a href="#" data-role="button" class="ui-btn ui-btn-inline ui-shadow ui-corner-all">'+state.label+'</a>');
+                if (state.css) newBtn.attr('style',state.css);
+                if (state.icon)
+                {
+                  newBtn.addClass('ui-btn-icon-left');
+                  newBtn.addClass('ui-icon-' + state.icon);
+                }
+
+                newBtn.on('click', {nodeId:node._id, action:state.action, nodeType:node.type, cKey:cKey, /*sKey:sKey*/}, function(event) {
+                  //alert(event.data.action + ' was clicked for node ' + event.data.nodeId);
+                  socket.emit("CONTROLCLICK", {nodeId:event.data.nodeId, action:event.data.action, nodeType:event.data.nodeType, controlKey:event.data.cKey, stateKey:event.data.sKey});
+                });
+                $('#nodeControls').append(newBtn); ////$('#nodeControls').controlgroup("container").append(newBtn);
+                //break;
+              }
+
+              if (control.breakAfter == true)
+                $('#nodeControls').append('<br/>');
             }
-            var newBtn = $('<a href="#" data-role="button" class="ui-btn ui-btn-inline ui-shadow ui-corner-all">'+state.label+'</a>');
-            if (state.css) newBtn.attr('style',state.css);
-            if (state.icon)
+
+            if ($('#nodeControls a').size())
             {
-              newBtn.addClass('ui-btn-icon-left');
-              newBtn.addClass('ui-icon-' + state.icon);
+              $('#nodeControls').show();
+              //$('#nodeControls').controlgroup().controlgroup("refresh").trigger('create');
             }
-
-            newBtn.on('click', {nodeId:node._id, action:state.action, nodeType:node.type, cKey:cKey, sKey:sKey}, function(event) {
-              //alert(event.data.action + ' was clicked for node ' + event.data.nodeId);
-              socket.emit("CONTROLCLICK", {nodeId:event.data.nodeId, action:event.data.action, nodeType:event.data.nodeType, controlKey:event.data.cKey, stateKey:event.data.sKey});
-            });
-            $('#nodeControls').append(newBtn); ////$('#nodeControls').controlgroup("container").append(newBtn);
-            break;
           }
-
-          if (control.breakAfter == true)
-            $('#nodeControls').append('<br/>');
-        }
-
-        if ($('#nodeControls a').size())
-        {
-          $('#nodeControls').show();
-          //$('#nodeControls').controlgroup().controlgroup("refresh").trigger('create');
-        }
-      }
+        });
+      });
 
       //handle node settings
       $('#nodeSettingsList').empty().hide();
