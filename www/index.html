@@ -569,10 +569,52 @@
         <br/>
         <img src="images/loading.gif" />
       </div>
-      <ul id="metricStats" data-role="listview" data-inset="true" data-theme="a" data-dividertheme="b"></ul>
+      <ul id="metricStatisticList" data-role="listview" data-inset="true" data-theme="a" data-dividertheme="b"></ul>
     </div>
   </div>
 
+  <div data-role="page" id="metricstatistic">
+    <div data-role="header">
+      <h3><span id="nodeDetailTitleMetric">Node title</span> (<span id="metricDetailTitle">Metric details</span> <span class="metricUpdated">x</span>)</h3>
+      <a id="metric_update" href="#nodedetails" class="ui-btn ui-btn-inline ui-btn-b ui-shadow ui-corner-all ui-icon-back ui-btn-icon-left ui-mini" data-rel="nodedetails">Node</a>
+      <div class="ui-btn-right" data-role="controlgroup" data-type="horizontal">
+        <a id="btnPinMetric" href="#" data-role="button" data-icon="fa-thumb-tack" data-iconpos="notext" title="Show on dashboard">Pin</a>
+        <a id="btnGraphMetric" href="#" data-role="button" data-icon="fa-bar-chart" data-iconpos="notext" title="Data log this metric">Graph</a>
+        <a href="#deleteMetric" data-role="button" data-icon="fa-trash" data-iconpos="notext" data-transition="fade" title="Delete this metric">Delete</a>
+      </div>
+    </div>
+    <div data-role="main" class="ui-content">
+      <div class="ui-field-contain">
+        <label for="metricLabel" class="labelbold">Label:</label>
+        <input type="text" name="metricStatisticLabel" id="metricStatisticLabel" placeholder="statistic label..." readonly/>
+        <label for="metricValue" class="labelbold">Last value:</label>
+        <!--input type="text" name="metricValue" id="metricValue" placeholder="value" readonly /-->
+      </div>
+      <div id="metricStatisticGraphWrapper" style="width:100%; height:280px;">
+        <div id="metricStatisticGraph"></div>
+        <div id="graphControls" data-role="controlgroup" data-type="horizontal" style="text-align:center;margin:auto">
+          <a class="graphControl" href="#" data-role="button" hours="720" data-theme="b" title="last month">M</a>
+          <a class="graphControl" href="#" data-role="button" hours="168" data-theme="b" title="last week">W</a>
+          <a class="graphControl" href="#" data-role="button" hours="24" data-theme="b" title="last day">D</a>
+          <a class="graphControl" href="#" data-role="button" hours="1" data-theme="b" title="last hour">H</a>
+          <a id="graphZoomIn" href="#" data-role="button" data-icon="fa-search-plus" data-iconpos="notext" data-theme="b" title="zoom in">ZoomIn</a>
+          <a id="graphZoomOut" href="#" data-role="button" data-icon="fa-search-minus" data-iconpos="notext" data-theme="b" title="zoom out">ZoomOut</a>
+          <a id="graphPanLeft" href="#" data-role="button" data-icon="arrow-l" data-iconpos="notext" data-theme="b" title="scroll left">Left</a>
+          <a id="graphPanRight" href="#" data-role="button" data-icon="arrow-r" data-iconpos="notext" data-theme="b" title="scroll right">Right</a>
+          <a id="graphExport" href="#" data-role="button" data-icon="fa-download" data-iconpos="notext" data-theme="b" title="export raw data">Right</a>
+          <a id="graphTogglePoints" href="#" data-role="button" data-icon="fa-ellipsis-h" data-iconpos="notext" data-theme="a" title="Show Data Points">ShowPoints</a>
+          <a id="graphEditDataToggle" href="#" data-role="button" data-icon="fa-edit" data-iconpos="notext" data-theme="a" title="Edit Mode">EditData</a>
+          <a id="graphDeleteDataToggle" href="#" data-role="button" data-icon="fa-times-circle" data-iconpos="notext" data-theme="a" title="Delete Mode">DeleteData</a>
+        </div>
+      </div>
+      <div ui-role="loadingmetricgraph" class="ui-content center-div center-wrapper" style="padding-top:40px">
+        <span id="loadingmetricgraph" style="font-weight:bold">Loading graph...</span>
+        <br/>
+        <img src="images/loading.gif" />
+      </div>
+      <ul id="metricStatisticList" data-role="listview" data-inset="true" data-theme="a" data-dividertheme="b"></ul>
+    </div>
+  </div>
   <div data-role="page" id="requestdetails">
     <div data-role="header">
       <h3><span id="nodeDetailTitleRequest">Request title</span> (<span id="requestDetailTitle">Request details</span> <span class="requestUpdated">x</span>)</h3>
@@ -996,7 +1038,8 @@
     });
 
     //global variables
-    graphData=[];
+    graphData = [];
+    var statisticData;
     metricGraphWrapper = $('#metricGraphWrapper');
     metricGraph = $('#metricGraph');
     var plot;
@@ -1107,6 +1150,14 @@
       $(document).off("pageshow", "#metricdetails", renderAndCloneStat);
     }
 
+    function renderPlot2() {
+      metricGraphWrapper.show();
+      $("div[ui-role='loadingmetricgraph']").hide();
+      metricGraph.width(metricGraphWrapper.width()).height(metricGraphWrapper.height() - $('#graphControls').height()); //this assumes the 'pageshow' page event already happened, otherwise will fail to set the width correctly and should be moved in that event
+      plot = $.plot(metricGraph, [{label:graphOptions.legendLbl, data:graphData}], graphOptions);
+      $(document).off("pageshow", "#metricstatistic", renderAndCloneStat2);
+    }
+
     function refreshGraph(freezeGraph=undefined, getNewData=true) {
       graphFrozen = freezeGraph || false;
       graphOptions = { //whole plot options object
@@ -1123,6 +1174,24 @@
       if (getNewData) {
         graphData = [];
         socket.emit('GETGRAPHDATA', selectedNodeId, selectedSensorId, selectedMetricKey, graphView.start, graphView.end); //ask socket for the data
+      }
+    }
+
+    function refreshStatistic(freezeGraph=undefined, getNewData=true) {
+      graphOptions = { //whole plot options object
+        bars: {show: true, /*steps: true,*/ fill:true },
+        xaxis: { mode: "time", timezone: "browser", min:graphView.start, max:graphView.end },
+        yaxis: { min:null, max:null, autoscaleMargin:0.05, zoomRange:false, panRange:false }, //no Y zooming/panning
+        grid: {hoverable: true, clickable: true, backgroundColor: {colors:['#000', '#666']}},
+        selection: { mode: "x" },
+        legend:{show:false},
+        yaxes:[],
+        zoom: { interactive: true },
+        //pan: { interactive: true },
+      };
+      if (getNewData) {
+        //statisticData = [];
+        socket.emit('GETSTATISTICDATA', selectedNodeId, selectedSensorId, selectedMetricKey, 1612623978000,  1612984829000);//graphView.start, graphView.end); //ask socket for the data
       }
     }
     
@@ -1160,6 +1229,11 @@
 
     function renderAndCloneStat() {
       renderPlot();
+      $(graphStat).clone().appendTo('#metricGraph');
+    }
+
+    function renderAndCloneStat2() {
+      renderPlot2();
       $(graphStat).clone().appendTo('#metricGraph');
     }
 
@@ -1301,6 +1375,104 @@
       }
     });
 
+    socket.on('STATISTICDATAREADY', function(rawData) {
+      //rawData = statisticData;
+      graphData = [];
+      var max = Number.NEGATIVE_INFINITY;
+      var min = Number.POSITIVE_INFINITY;
+      var margin = 0;
+      
+      //var points = ($("#graphTogglePoints").hasClass('active')) ? {show: true, radius:1, fill: false} : {};
+      //points = $.extend(true, points, graphOptions);
+      //graphOptions.points = points;
+      graphOptions = $.extend(true, graphOptions, rawData.options); //http://stackoverflow.com/questions/171251/how-can-i-merge-properties-of-two-javascript-objects-dynamically
+
+      //override min/max from metrics graphOptions (if any defined); allows custom Y scaling of graphs
+      //if (rawData.options.yaxis) {
+      //  min = rawData.options.yaxis.min != undefined ? rawData.options.yaxis.min : min;
+      //  max = rawData.options.yaxis.max != undefined ? rawData.options.yaxis.max : max;
+      //}
+      var ticks = rawData.graphData.ticks;
+      var data = [];
+      var value, new_value, result;
+      //make sure to extend min/max if any data point is outside the defined graph range
+      for (index = 0; index < rawData.graphData.data.length; index++) {
+        if (index == 0)
+          value = rawData.graphData.data[index].v;
+        else{
+          var data = new Date(rawData.graphData.data[index].t);
+          new_value = rawData.graphData.data[index].v;
+          result = new_value - value;
+          graphData.push([index,result]);
+          value = new_value;
+          //ticks.push([index,`${data.toLocaleDateString('en-DE',  { month: 'numeric', day: 'numeric' })}`]);
+          if (graphOptions.yaxis.autoscaleTop !== false) max = Math.max(max, result);
+        }
+      };
+      graphData = rawData.graphData.data; 
+      min = 0;
+      margin=(max-min) * graphOptions.yaxis.autoscaleMargin; //defining the upper and lower margin
+      if (min==max) margin=graphOptions.yaxis.autoscaleMargin * min; // in case of only one value in the dataset (ex. motion detection)
+      if (graphOptions.yaxis.autoscaleBottom !== false) min -= margin;
+      if (graphOptions.yaxis.autoscaleTop !== false) max += margin;
+      graphOptions.xaxis.min = graphView.start;
+      graphOptions.xaxis.max = graphView.end;
+      graphOptions.yaxis.min = min;
+      graphOptions.yaxis.max = max;
+      
+      //yaxis
+      metricLabel=nodes[selectedNodeId].metrics[selectedSensorId][selectedMetricKey].label;
+      graphOptions.yaxes.push({axisLabel:rawData.options.legendLbl+' ('+metricLabel+')',axisLabelFontSizePixels:11, metricName:rawData.options.metricName});
+
+      graphOptions = {
+          series: {
+              bars: {
+                  show: true
+              }
+          },
+          bars: {
+              align: "center",
+              barWidth: 0.5
+          },
+          xaxis: {
+              axisLabel: "World Cities",
+              axisLabelUseCanvas: true,
+              axisLabelFontSizePixels: 12,
+              axisLabelFontFamily: 'Verdana, Arial',
+              axisLabelPadding: 10,
+              ticks: ticks
+              
+          },
+          yaxis: {
+              axisLabel: "Average Temperature",
+              axisLabelUseCanvas: true,
+              axisLabelFontSizePixels: 12,
+              axisLabelFontFamily: 'Verdana, Arial',
+              axisLabelPadding: 3,
+              tickFormatter: function (v, axis) {
+                  return v + "°C";
+              }
+          },
+          legend: {
+              noColumns: 0,
+              labelBoxBorderColor: "#000000",
+              position: "nw"
+          },
+          grid: {
+              hoverable: true,
+              borderWidth: 2,        
+              backgroundColor: { colors: ["#ffffff", "#EDF5FF"] }
+          }
+      };
+      $(graphStat).html(rawData.graphData.msg != undefined ? rawData.graphData.msg : (rawData.graphData.data.length + (rawData.graphData.totalIntervalDatapoints != rawData.graphData.data.length ? ' / '+rawData.graphData.totalIntervalDatapoints : '') +'pts ('+ rawData.graphData.queryTime+'ms) ('+humanFileSize(rawData.graphData.totalIntervalDatapoints*9)+'/'+humanFileSize(rawData.graphData.logSize)+')'));
+      //need to defer plotting until after pageshow is finished rendering, otherwise the wrapper will return an incorrect width of "100"
+      if (metricGraphWrapper.width()==100)
+        $(document).on("pageshow", "#metricstatistic", renderAndCloneStat2);
+      else {
+        renderAndCloneStat2()
+      }
+    });
+
     socket.on('MULTIGRAPHDATAREADY', function(seriesArray){
       graphData = [];
       var margin = 0;
@@ -1385,7 +1557,7 @@
     });
 
     $(window).resize(function(){
-      if ($.mobile.activePage.attr('id') == 'metricdetails' /*&& nodes[selectedNodeId].metrics[selectedMetricKey].graph*/ && metricGraph.is(':visible'))
+      if (($.mobile.activePage.attr('id') == 'metricdetails' || $.mobile.activePage.attr('id') == 'metricstatistic') /*&& nodes[selectedNodeId].metrics[selectedMetricKey].graph*/ && metricGraph.is(':visible'))
       {
         metricGraph.width(metricGraphWrapper.width());
         graphOptions.xaxis.min = graphView.start;
@@ -1589,10 +1761,12 @@
         else $('#nodeList').append(newLI);
 
         if (selectedNodeId == node._id) {
-          if (['nodedetails','metricdetails','requestdetails'].indexOf($.mobile.activePage.attr('id')) > -1)
+          if (['nodedetails','metricdetails','metricstatistic','requestdetails'].indexOf($.mobile.activePage.attr('id')) > -1)
             refreshNodeDetails(node);
           if ($.mobile.activePage.attr('id')=='metricdetails')
             refreshGraph(true, false);
+          else if ($.mobile.activePage.attr('id')=='metricstatistic')
+            refreshStatistic(true, false);
         }
         
         //update this node's events on the events page
@@ -2063,17 +2237,19 @@
         $("div[ui-role='loadingmetricgraph']").hide();
       }
 
-      //populate metrics statistics
+      //populate metrics statistic
       //TODO only display if metric has log
-      $('#metricStats').empty();
+      $('#metricStatisticList').empty();
+      //refreshStatistic();
       // var hasGraphedMetrics = false;
       // for (var sensorId in node.metrics)
       //   for(var key in node.metrics[sensorId])
       //   {
       //     var metric = node.metrics[sensorId][key];
       //     var metricValue = metricsValues({[sensorId]:metric}, true);
-          var newLI = $('<li "id="' + metric.label + '"><a "metric-id="' + metric.label + '" href="#metricstats" class="metricdetails">' + metric.label + ' ' + '<span class="ui-li-count ui-li-count16">' + metric.value + (metric.unit || '') +  '</span></a></li>');
-          $('#metricStats').append(newLI);
+          //var newLI = $('<li sid ="' + sensorId + '"id="' + key + '"><a sensor-id ="' + sensorId + '"metric-id="' + key + '" href="#metricdetails" class="metricdetails">xxx</a></li>');
+          var newLI = $('<li "id="' + metric.label + '"><a "metric-id="' + metric.label + '" href="#metricstatistic" class="metricstatistic">' + metric.label + ' ' + '<span class="ui-li-count ui-li-count16">' + metric.value + (metric.unit || '') +  '</span></a></li>');
+          $('#metricStatisticList').append(newLI);
         //   if (key == selectedMetricKey && (['metricdetails'].indexOf($.mobile.activePage.attr('id')) > -1))
         //   {
         //     $('.metricUpdated').html(ago(metric.updated, 0).tag);
@@ -2082,7 +2258,36 @@
         //   }
         //   if (metric.graph) hasGraphedMetrics = true;
         // }
-      $('#metricStats').listview().listview('refresh');
+      $('#metricStatisticList').listview().listview('refresh');
+    }
+
+    function refreshMetricStatistic(metric) {
+      $('#metricDetailTitle').html(metric.label || 'Metric Label');
+      $('.metricUpdated').html(ago(metric.updated, 0).tag);
+      $('#metricValue').val(metric.value + (metric.unit || ''));
+      $('#metricLabel').val(metric.label || '');
+
+      if (metric.pin!=0 && metric.pin!=undefined)
+        $("#btnPinMetric").addClass('pinned').css('background-color','#38C');
+      else $("#btnPinMetric").removeClass('pinned').css('background-color','');
+
+      //graphData=[];
+      metricGraphWrapper.hide();
+      $("#btnGraphMetric").show();
+      if (metric.graph==1) {
+        $("#btnGraphMetric").addClass('graphed').css('background-color','#38C');
+        $("div[ui-role='loadingmetricgraph']").show();
+        graphView.resetDomain();
+        refreshStatistic();
+      }
+      else if (metric.graph==0) {
+        $("#btnGraphMetric").removeClass('graphed').css('background-color','');
+        $("div[ui-role='loadingmetricgraph']").hide();
+      }
+      else {
+        $("#btnGraphMetric").hide();
+        $("div[ui-role='loadingmetricgraph']").hide();
+      }
     }
 
     function refreshRequestDetails(request) {
@@ -2114,6 +2319,8 @@
     });
 
     $(document).on("click", ".metricdetails", function () {
+      metricGraphWrapper = $('#metricGraphWrapper');
+      metricGraph = $('#metricGraph');
       var metricKey = $(this).attr('metric-id');
       var sensorId = $(this).attr('sensor-id');
       selectedSensorId = isNumeric(sensorId) ? parseInt(sensorId) : sensorId;
@@ -2121,7 +2328,18 @@
       var metric = nodes[selectedNodeId].metrics[selectedSensorId][metricKey];
       refreshMetricDetails(metric);
     });
-    
+
+    $(document).on("click", ".metricstatistic", function () {
+      metricGraphWrapper = $('#metricStatisticGraphWrapper');
+      metricGraph = $('#metricStatisticGraph');
+      var metricKey = $(this).attr('metric-id');
+      var sensorId = $(this).attr('sensor-id');
+      selectedSensorId ;//= isNumeric(sensorId) ? parseInt(sensorId) : sensorId;
+      metricKey = selectedMetricKey;
+      var metric = nodes[selectedNodeId].metrics[selectedSensorId][selectedMetricKey];
+      refreshMetricStatistic(metric);
+    });
+
     $(document).on("click", ".requestdetails", function () {
       var requestKey = $(this).attr('request-id');
       selectedRequestKey = requestKey;
@@ -2556,6 +2774,28 @@
       }
       if (data.prevPage.attr('id')=='metricdetails') {
         updateSelectedMetricSettings();
+        $("#graphTogglePoints").removeClass('active').css('background-color','');
+        $("#graphDeleteDataToggle").removeClass('active').css('background-color','');
+        $("#graphEditDataToggle").removeClass('active').css('background-color','');
+      }
+    });
+
+    $("#nodestatistic").on('pagebeforeshow', function(event, data) {
+      //show/hide IP box - this is for numeric ID nodes, that also have an _ip property (request made via HTTPENDPOINT)
+      if (nodes[selectedNodeId] && nodes[selectedNodeId]._ip)
+      {
+        $('#nodeIP').val(nodes[selectedNodeId]._ip);
+        $("label[for='nodeIP']").show()
+        $('#nodeIP').show().parent('div.ui-input-text').show();
+      }
+      else
+      {
+        $('#nodeIP').val('');
+        $("label[for='nodeIP']").hide()
+        $('#nodeIP').hide().parent('div.ui-input-text').hide();
+      }
+      if (data.prevPage.attr('id')=='metricstatistic') {
+        //updateSelectedMetricSettings();
         $("#graphTogglePoints").removeClass('active').css('background-color','');
         $("#graphDeleteDataToggle").removeClass('active').css('background-color','');
         $("#graphEditDataToggle").removeClass('active').css('background-color','');
