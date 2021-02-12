@@ -120,12 +120,16 @@ exports.getData = function(filename, start, end, dpcount) {
 // start:  (seconds since unix epoch)
 // end:     (seconds since unix epoch)
 // dpcount: ??
-exports.getStatistics = function(filename, start, end, dpcount) {
+exports.getStatistic = function(filename, start, end, dpcount) {
   dpcount = dpcount || 1500;
   if (dpcount<1) dpcount = 1;
   if (start > end) return {};
+  const now = new Date();
+  var ts2 = Math.floor(now / 1000);
+  var offset = now.getTimezoneOffset();
   var ts = new Date();
-  var startDay =  start - (start % 86400); // get start of first day interval
+  //try to extend the interval to full days, check later if possible
+  var startDay =  (start - (start % 86400) + offset*60); // get start of first day interval
   var endDay =  end - (end % 86400) + 86400; //get end of last day interval
   data = [];
   filesize = exports.fileSize(filename);
@@ -140,11 +144,11 @@ exports.getStatistics = function(filename, start, end, dpcount) {
   var lastLogTimestamp = buff.readUInt32BE(1);
   var lastValue = buff.readUInt32BE(5);
   if (startDay < firstLogTimestamp) {
-    startDay = firstLogTimestamp - (firstLogTimestamp % 86400) + 86400;
+    startDay = firstLogTimestamp - (firstLogTimestamp % 86400) + 86400 + offset*60;
     start = firstLogTimestamp;
   }
   if (endDay > lastLogTimestamp) {
-    endDay = lastLogTimestamp - (lastLogTimestamp % 86400);
+    endDay = lastLogTimestamp - (lastLogTimestamp % 86400 + offset*60);
     end = lastLogTimestamp;
   }
   timetmp = 0;
@@ -152,11 +156,11 @@ exports.getStatistics = function(filename, start, end, dpcount) {
   var item ={};
   days = (endDay - startDay)/86400;
   //if we don't have a full day to start with 
-  if (start = firstLogTimestamp){
+  if (start == firstLogTimestamp){
     item = {t:start*1000, v:firstValue/10000};
     data.push(item);
   }
-  for (var i=0; i<days; i++)
+  for (var i=0; i<=days; i++)
   {
     pos = exports.binarySearch(fd,startDay+(i*86400),filesize);
     last_time = timetmp;
@@ -172,7 +176,7 @@ exports.getStatistics = function(filename, start, end, dpcount) {
     }
     if (pos == filesize-9) break;
   }
-  if (end = lastLogTimestamp){
+  if (end == lastLogTimestamp){
     item = {t:lastLogTimestamp*1000, v:lastValue/10000};
     data.push(item);
   }
