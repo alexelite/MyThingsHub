@@ -94,6 +94,23 @@
       padding: 15px;
     }
 
+    #metricGraph2 div.xAxis div.tickLabel {
+      transform: translateY(15px) rotate(-90deg);
+      -ms-transform: translateY(15px) rotate(-90deg);
+      /* IE 9 */
+      -moz-transform: translateY(15px) rotate(-90deg);
+      /* Firefox */
+      -webkit-transform: translateY(15px) rotate(-90deg);
+      /* Safari and Chrome */
+      -o-transform: translateY(15px) rotate(-90deg);
+
+      /* Opera */
+      /*rotation-point:50% 50%;*/
+      /* CSS3 */
+      /*rotation:270deg;*/
+      /* CSS3 */
+    }
+
     .labelbold {
       font-weight: bold !important;
       overflow: hidden;
@@ -1369,8 +1386,19 @@
             return;
           }
 
-          graphView.start = ranges.xaxis.from;
-          graphView.end = ranges.xaxis.to;
+          if (graphOptions.xaxis.ticks !== undefined) {
+            let time = [];
+            time = graphOptions.xaxis.ticks.find(element => element[0] > ranges.xaxis.from)
+            time = time[1].split("/");
+            graphView.start = new Date(time[2], time[1] - 1, time[0]).getTime()
+            time = graphOptions.xaxis.ticks.find(element => element[0] > ranges.xaxis.to)
+            time = time[1].split("/");
+            graphView.end = new Date(time[2], time[1] - 1, time[0]).getTime() - 1000;
+          }
+          else {
+            graphView.start = ranges.xaxis.from;
+            graphView.end = ranges.xaxis.to;
+          }
           refreshGraph(true);
         }
 
@@ -1604,95 +1632,20 @@
         });
 
         socket.on('STATISTICDATAREADY', function (rawData) {
-          //rawData = statisticData;
-          graphData = [];
-          //var max = Number.NEGATIVE_INFINITY;
-          //var min = Number.POSITIVE_INFINITY;
-          //var margin = 0;
 
-          //var points = ($("#graphTogglePoints").hasClass('active')) ? {show: true, radius:1, fill: false} : {};
-          //points = $.extend(true, points, graphOptions);
-          //graphOptions.points = points;
+          graphData = [];
+
           graphOptions = $.extend(true, graphOptions, rawData.options); //http://stackoverflow.com/questions/171251/how-can-i-merge-properties-of-two-javascript-objects-dynamically
           graphOptions = $.extend(true, graphOptions, rawData.graphOptions);
-          //override min/max from metrics graphOptions (if any defined); allows custom Y scaling of graphs
-          //if (rawData.options.yaxis) {
-          //  min = rawData.options.yaxis.min != undefined ? rawData.options.yaxis.min : min;
-          //  max = rawData.options.yaxis.max != undefined ? rawData.options.yaxis.max : max;
-          //}
+
           var ticks = rawData.graphData.ticks;
           var data = [];
           var value, new_value, result;
-          //make sure to extend min/max if any data point is outside the defined graph range
-          // for (index = 0; index < rawData.graphData.data.length; index++) {
-          //   if (index == 0)
-          //     value = rawData.graphData.data[index].v;
-          //   else {
-          //     var data = new Date(rawData.graphData.data[index].t);
-          //     new_value = rawData.graphData.data[index].v;
-          //     result = new_value - value;
-          //     graphData.push([index, result]);
-          //     value = new_value;
-          //     //ticks.push([index,`${data.toLocaleDateString('en-DE',  { month: 'numeric', day: 'numeric' })}`]);
-          //     if (graphOptions.yaxis.autoscaleTop !== false) max = Math.max(max, result);
-          //   }
-          // };
+
           graphData = rawData.graphData.data;
-          // min = 0;
-          // margin = (max - min) * graphOptions.yaxis.autoscaleMargin; //defining the upper and lower margin
-          // if (min == max) margin = graphOptions.yaxis.autoscaleMargin * min; // in case of only one value in the dataset (ex. motion detection)
-          // if (graphOptions.yaxis.autoscaleBottom !== false) min -= margin;
-          // if (graphOptions.yaxis.autoscaleTop !== false) max += margin;
-          // graphOptions.xaxis.min = graphView.start;
-          // graphOptions.xaxis.max = graphView.end;
-          // graphOptions.yaxis.min = min;
-          // graphOptions.yaxis.max = max;
 
-          //yaxis
           metricLabel = nodes[selectedNodeId].metrics[selectedSensorId][selectedMetricKey].label;
-
-
-          // graphOptions = {
-          //   series: {
-          //     bars: {
-          //       show: true
-          //     }
-          //   },
-          //   bars: {
-          //     align: "center",
-          //     barWidth: 0.5
-          //   },
-          //   xaxis: {
-          //     axisLabel: "World Cities",
-          //     axisLabelUseCanvas: true,
-          //     axisLabelFontSizePixels: 12,
-          //     axisLabelFontFamily: 'Verdana, Arial',
-          //     axisLabelPadding: 10,
-          //     ticks: ticks
-
-          //   },
-          //   yaxis: {
-          //     axisLabel: "Average Temperature",
-          //     axisLabelUseCanvas: true,
-          //     axisLabelFontSizePixels: 12,
-          //     axisLabelFontFamily: 'Verdana, Arial',
-          //     axisLabelPadding: 3,
-          //     tickFormatter: function (v, axis) {
-          //       return v + "°C";
-          //     }
-          //   },
-          //   legend: {
-          //     noColumns: 0,
-          //     labelBoxBorderColor: "#000000",
-          //     position: "nw"
-          //   },
-          //   grid: {
-          //     hoverable: true,
-          //     borderWidth: 2,
-          //     backgroundColor: { colors: ["#ffffff", "#EDF5FF"] }
-          //   },
-          //   yaxes: [],
-          // };
+          graphOptions.xaxis.showTickLabels = "major";
           graphOptions.yaxes.push({
             axisLabel: rawData.options.legendLbl + ' (' + metricLabel + ')', axisLabelFontSizePixels: 11, metricName: rawData.options.metricName
           });
@@ -1791,9 +1744,10 @@
         $(window).resize(function () {
           if (($.mobile.activePage.attr('id') == 'metricdetails') /*&& nodes[selectedNodeId].metrics[selectedMetricKey].graph*/ && metricGraph.is(':visible')) {
             metricGraph.width(metricGraphWrapper.width());
-            graphOptions.xaxis.min = graphView.start;
-            graphOptions.xaxis.max = graphView.end;
-            plot = $.plot(metricGraph, [{ label: graphOptions.legendLbl, data: graphData }], graphOptions);
+            //graphOptions.xaxis.min = graphView.start;
+            //graphOptions.xaxis.max = graphView.end;
+            renderPlot();
+            //plot = $.plot(metricGraph, [{ label: graphOptions.legendLbl, data: graphData }], graphOptions);
             $(graphStat).clone().appendTo('#metricGraph');
           }
           if ($.mobile.activePage.attr('id') == 'nodedetails' /*&& nodes[selectedNodeId].metrics[selectedMetricKey].graph*/ && nodeMultiGraph.is(':visible')) {
@@ -2512,6 +2466,10 @@
         });
 
         $(document).on("click", ".metricdetails", function () {
+          $("graphTogglePoints").show();
+          $("#graphEditDataToggle").show();
+          $("#graphDeleteDataToggle").show();
+          $('#graphExport').show();
           var metricKey = $(this).attr('metric-id');
           var sensorId = $(this).attr('sensor-id');
           selectedSensorId = isNumeric(sensorId) ? parseInt(sensorId) : sensorId;
@@ -2522,6 +2480,10 @@
         });
 
         $(document).on("click", ".metricstatistic", function () {
+          $("graphTogglePoints").hide();
+          $("#graphEditDataToggle").hide();
+          $("#graphDeleteDataToggle").hide();
+          $('#graphExport').hide();
           var metricKey = $(this).attr('metric-id');
           var sensorId = $(this).attr('sensor-id');
           selectedSensorId;//= isNumeric(sensorId) ? parseInt(sensorId) : sensorId;

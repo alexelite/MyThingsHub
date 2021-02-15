@@ -16,9 +16,7 @@
 var fs = require('fs');
 var path = require('path');
 var metrics = require(path.resolve(__dirname, 'metrics/core.js'));
-var tc = require("timezonecomplete");
-const timezone = "Europe/Bucharest";
-const db = tc.TzDatabase.instance();
+const { DateTime } = require("luxon");
 
 exports.getLogName = function (nodeId, sensorId, metricId) {
   if (metrics.isNumeric(nodeId))
@@ -121,152 +119,80 @@ exports.getData = function (filename, start, end, dpcount) {
 // start:  (seconds since unix epoch)
 // end:     (seconds since unix epoch)
 exports.getStatistic = function (filename, start, end) {
+  if (start < 0) start = 0;
   if (start > end) return {};
   var ts = new Date();
-  var days = []; ticks = [];
+  var temp = {};
+  var ticks = [];
   var index = 0;
-  var initialValue, endValue, dayDst, offset, dayMark;
+  var initialValue, endValue;
+  var posStart, posEnd;
   filesize = exports.fileSize(filename);
   if (filesize == -1) return { data: data, queryTime: 0, msg: 'no log data' };
   fd = fs.openSync(filename, 'r');
-  //truncate start/end to log time limits if necessary - this ensures good data resolution when time limits are out of bounds
   var buff = Buffer.alloc(9);
   fs.readSync(fd, buff, 0, 9, 0);
-  var firstLogTimestamp = buff.readUInt32BE(1) * 1000;
-  var firstValue = buff.readUInt32BE(5);
+  var firstLogTimestamp = buff.readUInt32BE(1);
   fs.readSync(fd, buff, 0, 9, filesize - 9);
-  var lastLogTimestamp = buff.readUInt32BE(1) * 1000;
-  var lastValue = buff.readUInt32BE(5);
+  var lastLogTimestamp = buff.readUInt32BE(1);
   starttimetmp = 0;
   endtimetmp = 0;
-  var temptime;
-  start_ts = start * 1000;
-  end_ts = end * 1000;
+  if (start < firstLogTimestamp) start = firstLogTimestamp;
+  if (end > lastLogTimestamp) end = lastLogTimestamp;
+  day_start = DateTime.fromSeconds(start).startOf('day');
+  day_end = DateTime.fromSeconds(end).startOf('day').plus({ days: 1 });
   data = [];
-  //lt - local timestamp
   do {
-    if ((dayDst === undefined) || dayDst < start_ts) {
-      //set the next daylight saving changing day, not time
-      dayDst = db.nextDstChange(timezone, start_ts);
-
-      //align day start to time zone's current offset, otherwise data will not be properly alligned
-      offset = new tc.DateTime(start_ts, tc.utc()).convert(tc.zone(timezone)).offsetDuration().milliseconds();
-      dayDst = dayDst - ((dayDst + offset) % 86400000);
-
-      //try to capture a full day, but if log is short get what we have
-      tempTime = (start_ts - ((start_ts + offset) % 86400000))
-      if (tempTime < firstLogTimestamp) start_ts = firstLogTimestamp;
-      else start_ts = tempTime;
-      //try to capture a full day, but if log is short get what we have
-      tempTime = (end_ts - ((end_ts + offset) % 86400000))
-      if (tempTime > lastLogTimestamp) end_ts = lastLogTimestamp;
-      else end_ts = tempTime + 86400000;
-
-      if (dayMark === undefined) {
-        //set the first day start after start timespamp, start is not always the start of a new day
-        dayMark = start_ts + 86400000;
-        dayMark = dayMark - ((dayMark + offset) % 86400000);
-      }
+    if (initialValue !== undefined) {
+      initialValue = endValue;
     }
-    //interval does not pass a dayMark, ex: current day
-    if (!(start_ts < dayMark && dayMark < end_ts)) {
-      if (initialValue !== undefined) {
-        initialValue = endValue;
-      }
-      else {
-        //initialValue = new tc.DateTime(start_ts, tc.utc()).convert(tc.zone(timezone));//start_ts//getdatafromlog(start_ts);
-        initialValue = exports.searchData(fd, filesize, start_ts / 1000, true);
-      }
-      endValue = exports.searchData(fd, filesize, end_ts / 1000, false);
-      result = endValue - initialValue;
-      dateLabel = new tc.DateTime(end_ts - 86400000 / 2, tc.utc()).convert(tc.zone(timezone)).format("dd/MM/yyyy")
-      start_ts = end_ts;
-    }
-    //interval passes a dayMark
     else {
-      if (initialValue !== undefined) {
-        initialValue = endValue;
-      }
-      else {
-        initialValue = exports.searchData(fd, filesize, start_ts / 1000, true);
-      }
-      //no daylight saving changing today
-      if ((dayDst != start_ts)) {
-        endValue = exports.searchData(fd, filesize, dayMark / 1000, false);
-        result = endValue - initialValue;
-        dateLabel = new tc.DateTime(dayMark - 86400000 / 2, tc.utc()).convert(tc.zone(timezone)).format("dd/MM/yyyy");
-        start_ts = dayMark;
-        dayMark += 86400000;
-      }
-      //daylight saving changing today
-      else {
-        //value of offset after the daylight change will happen
-        next_offset = new tc.DateTime(dayMark, tc.utc()).convert(tc.zone(timezone)).offsetDuration().milliseconds();
-        //after daylight change next day will start at
-        var nextDayMark = dayMark - ((dayMark + next_offset) % 86400000) + 86400000;
-        //day longer (25 hours)
-        if (nextDayMark > dayMark) {
-          endValue = exports.searchData(fd, filesize, nextDayMark / 1000, true);
-          result = ((endValue - initialValue) / 25) * 24;
-          dateLabel = new tc.DateTime(nextDayMark - 86400000 / 2, tc.utc()).convert(tc.zone(timezone)).format("dd/MM/yyyy");
-        }
-        //day shorter(23 hours)
-        else {
-          endValue = endValue = exports.searchData(fd, filesize, nextDayMark / 1000, true);
-          result = ((endValue - initialValue) / 23) * 24;
-          dateLabel = new tc.DateTime(nextDayMark - 86400000 / 2, tc.utc()).convert(tc.zone(timezone)).format("dd/MM/yyyy");
-        }
-        start_ts = nextDayMark;
-        dayMark = nextDayMark + 86400000;
-
-      }
-
+      temp = exports.searchData(fd, filesize, day_start.toSeconds(), firstLogTimestamp);
+      initialValue = temp.data;
+      posStart = temp.pos;
     }
+    dateLabel = day_start.toFormat('dd/LL/yyyy')
+    day_start = day_start.plus({ days: 1 })
+
+    temp = exports.searchData(fd, filesize, day_start.toSeconds(), day_start.minus({ days: 1 }).toSeconds());
+    endValue = temp.data;
+    posEnd = temp.pos;
+    if (endValue == 0) endValue = initialValue;
+    result = endValue - initialValue;
+
     data.push([index, result / 10000]);
     ticks.push([index, dateLabel]);
     index++;
-  } while (start_ts < end_ts)
+  } while (day_start < day_end)
   fs.closeSync(fd);
   return {
     data: data,
     graphOptions: { xaxis: { ticks: ticks } },
     queryTime: (new Date() - ts),
-    //totalIntervalDatapoints: (posEnd-posStart)/9+1-deleted,
-    //totalDatapoints:filesize/9-deleted,
+    totalIntervalDatapoints: (posEnd - posStart) / 9 + 1,
+    totalDatapoints: filesize / 9,
     logSize: filesize
   };
 }
 
-exports.searchData = function (fd, filesize, timestamp, direction_up) {
+exports.searchData = function (fd, filesize, timestamp, ts_limit) {
   var buff = Buffer.alloc(9);
-  var data;
+  var data, pos, status;
   pos = exports.binarySearch(fd, timestamp, filesize);
   while (data === undefined) {
     fs.readSync(fd, buff, 0, 9, pos);
     timetmp = buff.readUInt32BE(1);
-    if (buff.readUInt8(0) !== 0) { //skip deleted data TODO
-      if (direction_up) {
-        pos += 9;
-        if (pos >= filesize) data = -1;
-      }
-      else {
-        pos -= 9;
-        if (pos <= 0) data = -1;
-      }
-    } //skip deleted data TODO
-    else if ((direction_up) && ((timetmp < timestamp) || (timetmp > timestamp + 86400))) {
-      pos += 9;
-      if (pos >= filesize) data = -1;
+    status = buff.readUInt8(0); // skip deleted data 
+    if (timetmp <= ts_limit || (pos == 0)) {
+      data = buff.readInt32BE(5);
     }
-    else if ((!direction_up) && ((timetmp < timestamp - 86400) || (timetmp > timestamp))) {
+    else if ((timetmp > timestamp + 3600) || (status !== 0)) {
       pos -= 9;
-      if (pos <= 0) data = -1;
     }
     else data = buff.readInt32BE(5);
   }
-  return data;
+  return { data: data, pos: pos, timestamp: timetmp };
 }
-
 
 // filename:  binary file to append new data point to
 // timestamp: data point timestamp (seconds since unix epoch)

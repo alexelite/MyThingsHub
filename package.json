@@ -19,6 +19,7 @@
     "colors": "~1.4",
     "console-stamp": "^0.2.7",
     "json5": "~2.1.0",
+    "luxon": "^1.26.0",
     "merge": "^1.2.1",
     "mqtt": "^4.1.0",
     "nconf": "~0.10.0",
@@ -29,7 +30,7 @@
     "socket.io": "~2.3.0",
     "speedtest-net": "^1.6.2",
     "suncalc": "~1.8",
-    "timezonecomplete": "^5.11.5"
+    "winston": "^3.3.3"
   },
   "scripts": {
     "preinstall": "",

@@ -29,7 +29,21 @@
 // ********************************************************************************************
 // Note: In NodeJS modules are loaded synchronously and processed in the order they occur
 // ********************************************************************************************
+const winston = require('winston');
 
+const logger = winston.createLogger({
+  level: 'info',
+  format: winston.format.json(),
+  defaultMeta: { service: 'user-service' },
+  transports: [
+    //
+    // - Write all logs with level `error` and below to `error.log`
+    // - Write all logs with level `info` and below to `combined.log`
+    //
+    new winston.transports.File({ filename: 'error.log', level: 'error' }),
+    new winston.transports.File({ filename: 'combined1.log' }),
+  ],
+});
 const mqtt = require('mqtt');
 var nconf = require('nconf');                                   //https://github.com/indexzero/nconf
 var JSON5 = require('json5');                                   //https://github.com/aseemk/json5
